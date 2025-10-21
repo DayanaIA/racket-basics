@@ -1,7 +1,7 @@
 #lang scheme
 
 ; This file contains examples from de
-; Programming Languages - An Interpreter-Based Approach book;
+; Programming Languages - An Interpreter-Based Approach book
 
 
 ; navegate into lists
@@ -217,17 +217,12 @@ adiciona-elemento
 (adiciona-elemento 'a '(b))
 ; união
 ; com repetição
-(define combine (lambda (f op zero)
-                  (lambda (l)
-                    (if (null? l)
-                        zero 
-                        (op (f (car l)) ((combine f op zero) (cdr l)))))))
-(define combine (lambda (soma f zero) 
+(define combine (lambda (op f zero) 
          (lambda (lista) 
               (if (null? lista)
                   zero
-                   (soma  (f (car lista)) 
-                          ((combine soma f zero) (cdr lista)))))))
+                   (op  (f (car lista)) 
+                          ((combine op f zero) (cdr lista)))))))
 
 (define id (lambda (x) x))
 
@@ -236,6 +231,16 @@ adiciona-elemento
 
 uniao
 (uniao '(1 2) '(3 4))
+
+
+
+
+
+
+
+
+
+
 
 
 
