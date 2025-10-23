@@ -20,6 +20,12 @@
   [consC   (car : ExprC) (cdr : ExprC)]; Creates cell with a pair
   [carC    (pair : ExprC)]; Gets 1st element of a pair
   [cdrC    (pair : ExprC)]; Gets 2nd element of a pair
+  ; adding new "primitive" operations
+  [beginC  (e1 : ExprC) (e2 : ExprC)]
+  [let*C   (s1 : symbol) (e1 : ExprC) (s2 : symbol) (e2 : ExprC) (body : ExprC)]
+  [lam2C   (arg1 : symbol) (arg2 : symbol) (body : ExprC)]
+  [app2C   (fun : ExprC) (arg1 : ExprC) (arg2 : ExprC)]
+  [symC    (s : s-expression)]
   )
 
 #| agora a linguagem aumentada pelo açúcar sintático
@@ -41,6 +47,13 @@
   [consS   (car : ExprS) (cdr : ExprS)]
   [carS    (pair : ExprS)]
   [cdrS    (pair : ExprS)]
+  ; adding new operations
+  [beginS  (e1 : ExprS) (e2 : ExprS)]
+  [let*S   (s1 : symbol) (e1 : ExprS) (s2 : symbol) (e2 : ExprS) (body : ExprS)]
+  [letrecS (s : symbol) (e : ExprS) (body : ExprS)]
+  [lam2S   (arg1 : symbol) (arg2 : symbol) (body : ExprS)]
+  [app2S   (fun : ExprS) (arg1 : ExprS) (arg2 : ExprS)]
+  [symS    (s : s-expression)]
   )
 
 
@@ -60,14 +73,26 @@
     [consS   (b1 b2)    (consC (desugar b1) (desugar b2))]
     [carS    (c)        (carC (desugar c))]
     [cdrS    (c)        (cdrC (desugar c))]
-
+    ; adding new operations
+    [beginS  (e1 e2)    (beginC (desugar e1) (desugar e2))]
+    [let*S   (s1 e1 s2 e2 body) (let*C s1 (desugar e1) s2 (desugar e2) (desugar body))]
+    [letrecS (s e body) (                                       ; (letrec ( (f e) exp )) ~ 
+                         letC s (numC 0)                        ; (let ( f '())
+                                 (beginC                        ;        (begin
+                                    (setC s (desugar e))        ;              (set! f e)
+                                    (desugar body)))]           ;               exp )))
+    [lam2S   (a1 a2 b)  (lam2C a1 a2 (desugar b))]
+    [app2S   (fun arg1 arg2)  (app2C (desugar fun) (desugar arg1) (desugar arg2))]
+    [symS    (s) (symC s)]
     ))
 
 ; We need a new value for the box
 (define-type Value
-  [numV  (n : number)]
-  [closV (arg : symbol) (body : ExprC) (env : Env)]
-  [consV (car : Value) (cdr : Value)]
+  [numV   (n : number)]
+  [closV  (arg : symbol) (body : ExprC) (env : Env)]
+  [consV  (car : Value) (cdr : Value)]
+  [clos2V (arg1 : symbol) (arg2 : symbol) (body : ExprC) (env : Env)]
+  [symV   (s : s-expression)]
  
   )
 
@@ -180,6 +205,30 @@
                        cdr]
                 [else (error 'interp "cdr applied to non-cell")]
                 )]
+    ; adding new operations
+    ; begin
+    [beginC (e1 e2) (
+                     let ([v1 (interp e1 env)])
+                     (interp e2 env))]
+    [let*C (s1 e1 s2 e2 body) (
+                               let ([v1 (interp e1 env)]) ; 1. calcula e1 en un ambiente env, obtiene v1 y 
+                                (let ([env1 (extend-env (bind s1 (box v1)) env)]) ;crea un ambiente env1 (extiende env),
+                                  (let ([v2 (interp e2 env1)]) ; 2. calcula e2 en env1, obtiene v2 y 
+                                    (let ([env2 (extend-env (bind s2 (box v2)) env1)]) ;crea un ambiente env2 (extiene env1)
+                                      (interp body env2)))))] ; 3. calcula body en env2
+    [lam2C (a1 a2 b) (clos2V a1 a2 b env) ]
+    [app2C (f a1 a2)
+          (let ((closure (interp f env))
+                (argvalue1 (interp a1 env))
+                (argvalue2 (interp a2 env)))
+            (type-case Value closure
+              [clos2V (parameter1 parameter2 body env)
+                     (interp body (extend-env (bind parameter1 (box argvalue1))
+                                              (extend-env (bind parameter2 (box argvalue2)) env)))]
+              [else (error 'interp "operation app aplied to non-closure")]
+              ))]
+    [symC (s) (symV s)]
+
     ))
 
 
@@ -203,6 +252,19 @@
          [(cons) (consS (parse (second sl)) (parse (third sl)))]
          [(car) (carS (parse (second sl)))]
          [(cdr) (cdrS (parse (second sl)))]
+         ;adding new operations
+         [(begin) (beginS (parse (second sl)) (parse (third sl)))]
+         [(let*) (let*S (s-exp->symbol (list-ref sl 1))
+                        (parse (list-ref sl 2))
+                        (s-exp->symbol (list-ref sl 3))
+                        (parse (list-ref sl 4))
+                        (parse (list-ref sl 5)))]
+         [(letrec) (letrecS (s-exp->symbol (second sl)) 
+                        (parse (third sl))              
+                        (parse (fourth sl)))]           
+         [(lambda2) (lam2S (s-exp->symbol (second sl)) (s-exp->symbol (third sl)) (parse (fourth sl)))]
+         [(call2) (app2S (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
+         [(quote) (let ([quoted (second sl)]) (symS quoted))]
          [else (error 'parse "invalid list input")]))]
     [else (error 'parse "invalid input")]))
 
@@ -210,11 +272,36 @@
 ; Facilitator
 (define (interpS [s : s-expression]) (interp (desugar (parse s)) mt-env))
 
+; Readloop
 
-; Examples
+(define (readloop ) : void
+  (let((s (read)))
+    (cond
+      [(s-exp-list? s) (let* ((sl (s-exp->list s))
+                              (operator (s-exp->symbol (first sl))))
+                         (case operator
+                           [(@END) (void)]
+                           [else  (let* ( (arits (parse s))
+                                           (aritc (desugar arits))
+                                           (value (interpS s)))
+                                     (begin (display arits)
+                                            (display "\n")
+                                            (display aritc)
+                                            (display "\n")
+                                            (display value)
+                                            (display "\n")
+                                            (readloop)))]))]            
+
+      [else (error 'parse "invalid input")])))
+
+(readloop)
+
+
+#| Examples
 (interpS '(+ 10 (* 2 3)))
 
 (interpS '(lambda x (car x)))
+(interpS '(lambda2 x y (+ (car x) y)))
 
 ; parse s: [(lambda) (lamS (s-exp->symbol (second sl)) (parse (third sl)))]
 ;                     (lamS (        'x              ) (parse (car x)))
@@ -234,19 +321,9 @@
 ;             (closV 'x (carC (idC 'x)) '())
 (interp (lamC 'x (carC (idC 'x))) mt-env)
 
+(interpS '(let x 5 (begin (set! x 10) (+ x 5))))
 
+(interpS '(let* x 2 y (+ x 3) (* x y)))
 
-
-
-
-
-
-;(interpS '(+ 10 (call (lambda x (car x)) (cons 15 16))))
-
-;(interpS '(call (lambda x (+ x 5)) 8))
-;(interpS '(call (lambda f (call f (~ 32))) (lambda x (- 200 x))))
-; Tests
-;(test (interp (carC (consC (numC 10) (numC 20)))
- ;             mt-env)
-  ;    (numV 10))
+|#
 
