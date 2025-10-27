@@ -8,24 +8,24 @@
  |#
 
 (define-type ExprC
-  [numC    (n : number)]
-  [idC     (s : symbol)]
-  [appC    (fun : ExprC) (arg : ExprC)]
-  [setC    (s : symbol) (e : ExprC)]
-  [letC    (s : symbol) (v : ExprC) (body : ExprC)]
-  [plusC   (l : ExprC) (r : ExprC)]
-  [multC   (l : ExprC) (r : ExprC)]
-  [lamC    (arg : symbol) (body : ExprC)]
-  [ifC     (cond : ExprC) (y : ExprC) (n : ExprC)]
-  [consC   (car : ExprC) (cdr : ExprC)]; Creates cell with a pair
-  [carC    (pair : ExprC)]; Gets 1st element of a pair
-  [cdrC    (pair : ExprC)]; Gets 2nd element of a pair
+  [numC     (n : number)]
+  [idC      (s : symbol)]
+  [appC     (fun : ExprC) (arg : ExprC)]
+  [setC     (s : symbol) (e : ExprC)]
+  [letC     (s : symbol) (v : ExprC) (body : ExprC)]
+  [plusC    (l : ExprC) (r : ExprC)]
+  [multC    (l : ExprC) (r : ExprC)]
+  [lamC     (arg : symbol) (body : ExprC)]
+  [ifC      (cond : ExprC) (y : ExprC) (n : ExprC)]
+  [consC    (car : ExprC) (cdr : ExprC)]; Creates cell with a pair
+  [carC     (pair : ExprC)]; Gets 1st element of a pair
+  [cdrC     (pair : ExprC)]; Gets 2nd element of a pair
   ; adding new "primitive" operations
-  [beginC  (e1 : ExprC) (e2 : ExprC)]
-  [let*C   (s1 : symbol) (e1 : ExprC) (s2 : symbol) (e2 : ExprC) (body : ExprC)]
-  [lam2C   (arg1 : symbol) (arg2 : symbol) (body : ExprC)]
-  [app2C   (fun : ExprC) (arg1 : ExprC) (arg2 : ExprC)]
-  [symC    (s : s-expression)]
+  [beginC   (e1 : ExprC) (e2 : ExprC)]
+  [let*C    (s1 : symbol) (e1 : ExprC) (s2 : symbol) (e2 : ExprC) (body : ExprC)]
+  [lambda2C (arg1 : symbol) (arg2 : symbol) (body : ExprC)]
+  [app2C    (fun : ExprC) (arg1 : ExprC) (arg2 : ExprC)]
+  [quoteC   (s : s-expression)]
   )
 
 #| agora a linguagem aumentada pelo açúcar sintático
@@ -33,57 +33,57 @@
  |#
 
 (define-type ExprS
-  [numS    (n : number)]
-  [idS     (s : symbol)]
-  [appS    (fun : ExprS) (arg : ExprS)]
-  [setS    (s : symbol) (v : ExprS)]
-  [letS    (s : symbol) (v : ExprS) (body : ExprS)]
-  [plusS   (l : ExprS) (r : ExprS)]
-  [bminusS (l : ExprS) (r : ExprS)]
-  [uminusS (e : ExprS)]
-  [multS   (l : ExprS) (r : ExprS)]
-  [lamS    (arg : symbol) (body : ExprS)]
-  [ifS     (c : ExprS) (y : ExprS) (n : ExprS)]
-  [consS   (car : ExprS) (cdr : ExprS)]
-  [carS    (pair : ExprS)]
-  [cdrS    (pair : ExprS)]
+  [numS     (n : number)]
+  [idS      (s : symbol)]
+  [appS     (fun : ExprS) (arg : ExprS)]
+  [setS     (s : symbol) (v : ExprS)]
+  [letS     (s : symbol) (v : ExprS) (body : ExprS)]
+  [plusS    (l : ExprS) (r : ExprS)]
+  [bminusS  (l : ExprS) (r : ExprS)]
+  [uminusS  (e : ExprS)]
+  [multS    (l : ExprS) (r : ExprS)]
+  [lamS     (arg : symbol) (body : ExprS)]
+  [ifS      (c : ExprS) (y : ExprS) (n : ExprS)]
+  [consS    (car : ExprS) (cdr : ExprS)]
+  [carS     (pair : ExprS)]
+  [cdrS     (pair : ExprS)]
   ; adding new operations
-  [beginS  (e1 : ExprS) (e2 : ExprS)]
-  [let*S   (s1 : symbol) (e1 : ExprS) (s2 : symbol) (e2 : ExprS) (body : ExprS)]
-  [letrecS (s : symbol) (e : ExprS) (body : ExprS)]
-  [lam2S   (arg1 : symbol) (arg2 : symbol) (body : ExprS)]
-  [app2S   (fun : ExprS) (arg1 : ExprS) (arg2 : ExprS)]
-  [symS    (s : s-expression)]
+  [beginS   (e1 : ExprS) (e2 : ExprS)]
+  [let*S    (s1 : symbol) (e1 : ExprS) (s2 : symbol) (e2 : ExprS) (body : ExprS)]
+  [letrecS  (s : symbol) (e : ExprS) (body : ExprS)]
+  [lambda2S (arg1 : symbol) (arg2 : symbol) (body : ExprS)]
+  [app2S    (fun : ExprS) (arg1 : ExprS) (arg2 : ExprS)]
+  [quoteS   (s : s-expression)]
   )
 
 
 (define (desugar [as : ExprS]) : ExprC
   (type-case ExprS as
-    [numS    (n)        (numC n)]
-    [idS     (s)        (idC s)]
-    [appS    (fun arg)  (appC (desugar fun) (desugar arg))]
-    [setS    (s e)      (setC s (desugar e))]
-    [letS    (v e body) (letC v (desugar e) (desugar body))]
-    [plusS   (l r)      (plusC (desugar l) (desugar r))]
-    [bminusS (l r)      (plusC (desugar l) (multC (numC -1) (desugar r)))]
-    [uminusS (e)        (multC (numC -1) (desugar e))]
-    [multS   (l r)      (multC (desugar l) (desugar r))]
-    [lamS    (a b)      (lamC a (desugar b))]
-    [ifS     (c y n)    (ifC (desugar c) (desugar y) (desugar n))]
-    [consS   (b1 b2)    (consC (desugar b1) (desugar b2))]
-    [carS    (c)        (carC (desugar c))]
-    [cdrS    (c)        (cdrC (desugar c))]
+    [numS     (n)        (numC n)]
+    [idS      (s)        (idC s)]
+    [appS     (fun arg)  (appC (desugar fun) (desugar arg))]
+    [setS     (s e)      (setC s (desugar e))]
+    [letS     (v e body) (letC v (desugar e) (desugar body))]
+    [plusS    (l r)      (plusC (desugar l) (desugar r))]
+    [bminusS  (l r)      (plusC (desugar l) (multC (numC -1) (desugar r)))]
+    [uminusS  (e)        (multC (numC -1) (desugar e))]
+    [multS    (l r)      (multC (desugar l) (desugar r))]
+    [lamS     (a b)      (lamC a (desugar b))]
+    [ifS      (c y n)    (ifC (desugar c) (desugar y) (desugar n))]
+    [consS    (b1 b2)    (consC (desugar b1) (desugar b2))]
+    [carS     (c)        (carC (desugar c))]
+    [cdrS     (c)        (cdrC (desugar c))]
     ; adding new operations
-    [beginS  (e1 e2)    (beginC (desugar e1) (desugar e2))]
-    [let*S   (s1 e1 s2 e2 body) (let*C s1 (desugar e1) s2 (desugar e2) (desugar body))]
-    [letrecS (s e body) (                                       ; (letrec ( (f e) exp )) ~ 
+    [beginS   (e1 e2)            (beginC (desugar e1) (desugar e2))]
+    [let*S    (s1 e1 s2 e2 body) (let*C s1 (desugar e1) s2 (desugar e2) (desugar body))]
+    [letrecS  (s e body) (                                       ; (letrec ( (f e) exp )) ~ 
                          letC s (numC 0)                        ; (let ( f '())
                                  (beginC                        ;        (begin
                                     (setC s (desugar e))        ;              (set! f e)
                                     (desugar body)))]           ;               exp )))
-    [lam2S   (a1 a2 b)  (lam2C a1 a2 (desugar b))]
-    [app2S   (fun arg1 arg2)  (app2C (desugar fun) (desugar arg1) (desugar arg2))]
-    [symS    (s) (symC s)]
+    [lambda2S (a1 a2 b)        (lambda2C a1 a2 (desugar b))]
+    [app2S    (fun arg1 arg2)  (app2C (desugar fun) (desugar arg1) (desugar arg2))]
+    [quoteS   (s)              (quoteC s)]
     ))
 
 ; We need a new value for the box
@@ -216,7 +216,7 @@
                                   (let ([v2 (interp e2 env1)]) ; 2. calcula e2 en env1, obtiene v2 y 
                                     (let ([env2 (extend-env (bind s2 (box v2)) env1)]) ;crea un ambiente env2 (extiene env1)
                                       (interp body env2)))))] ; 3. calcula body en env2
-    [lam2C (a1 a2 b) (clos2V a1 a2 b env) ]
+    [lambda2C (a1 a2 b) (clos2V a1 a2 b env) ]
     [app2C (f a1 a2)
           (let ((closure (interp f env))
                 (argvalue1 (interp a1 env))
@@ -227,7 +227,7 @@
                                               (extend-env (bind parameter2 (box argvalue2)) env)))]
               [else (error 'interp "operation app aplied to non-closure")]
               ))]
-    [symC (s) (symV s)]
+    [quoteC (s) (symV s)]
 
     ))
 
@@ -262,9 +262,9 @@
          [(letrec) (letrecS (s-exp->symbol (second sl)) 
                         (parse (third sl))              
                         (parse (fourth sl)))]           
-         [(lambda2) (lam2S (s-exp->symbol (second sl)) (s-exp->symbol (third sl)) (parse (fourth sl)))]
+         [(lambda2) (lambda2S (s-exp->symbol (second sl)) (s-exp->symbol (third sl)) (parse (fourth sl)))]
          [(call2) (app2S (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
-         [(quote) (let ([quoted (second sl)]) (symS quoted))]
+         [(quote) (let ([quoted (second sl)]) (quoteS quoted))]
          [else (error 'parse "invalid list input")]))]
     [else (error 'parse "invalid input")]))
 
