@@ -24,8 +24,8 @@
 ; calcula e2 em rho1 obtendo v2, cria rho2 = rho1{x2->v2}...
 ;((lambda(x1)((lambda (x2)(...(lambda (xN) exp)eN)...)e2)e1)
 
-;((lambda (x) (let ((x 3)(y x)) (+ x y))) 4) ; evaluates to 7
-;((lambda (x) (let* ((x 3)(y x)) (+ x y))) 4)  ; evaluates to 6
+((lambda (x) (let ((x 3)(y x)) (+ x y))) 4) ; evaluates to 7
+((lambda (x) (let* ((x 3)(y x)) (+ x y))) 4)  ; evaluates to 6
 
 ; LETREC
 ; utilizado para definir funções recursivas localmente
@@ -38,7 +38,7 @@
             (if (= n 0)
                 1
                 (* n (fact (- n 1)))))))
-  (fact 5))
+        (fact 5))
 
 (letrec ((countdown
           (lambda (n)
@@ -46,4 +46,23 @@
                 'done
                 (countdown (- n 1))))))
   (countdown 3))
+
+; letrec cria apenas um fechamento, e não um fechamento por aplicação recursiva
+
+; forma antigua
+(define combine-old (lambda (op f zero)
+                      (lambda (lista)
+                        (if (null? lista) zero
+                            (op (f (car lista)) ((combine-old op f zero) (cdr lista)))))))
+
+; forma nova
+(define combine (lambda (op f zero)
+                  (letrec ((loop (lambda (lista)
+                                   (if (null? lista) zero
+                                       (op (f (car lista)) (loop (cdr lista))))))))))
+
+
+
+
+
 

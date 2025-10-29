@@ -69,7 +69,7 @@ adiciona1
 
 #| 
  | Conjuntos
- | Polimorfismo 2
+ | Polimorfismo - 2
  |#
 
 (define conj-nulo (lambda(=) (list = '())))
@@ -109,6 +109,53 @@ adiciona1
 (membro? 1 conjunto1)
 (adiciona 7 conjunto1)
 (uniao lista1 conjunto2)
+
+
+#| 
+ | Conjuntos
+ | Polimorfismo - 3
+ |#
+
+(define cria-operacoes-de-conjuntos (lambda (=)
+        (list (lambda () '())
+              (lambda (elemento conjunto)
+                (find ((curry =) elemento) conjunto)) ;membro?
+              (lambda (elemento conjunto)
+                (if (find ((curry =) elemento) conjunto) conjunto
+                    (cons elemento conjunto))) ; adiciona
+              )))
+
+
+(define op-conjunto-lista-assoc
+  (cria-operacoes-de-conjuntos =lista-assoc))
+
+(define la-conj-vazio (car op-conjunto-lista-assoc))
+
+(define la-membro? (cadr op-conjunto-lista-assoc))
+
+(define la-adiciona (caddr op-conjunto-lista-assoc))
+
+
+(la-conj-vazio) ; '()
+
+(la-membro? '(((a 1) (b 2))) '(((a 1) (b 2))))
+
+(la-adiciona '((c 3)) '(((a 1) (b 2))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
