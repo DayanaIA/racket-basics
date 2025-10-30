@@ -50,16 +50,45 @@
 ; letrec cria apenas um fechamento, e não um fechamento por aplicação recursiva
 
 ; forma antigua
+#|
 (define combine-old (lambda (op f zero)
                       (lambda (lista)
                         (if (null? lista) zero
                             (op (f (car lista)) ((combine-old op f zero) (cdr lista)))))))
-
+|#
 ; forma nova
+
+#|
 (define combine (lambda (op f zero)
                   (letrec ((loop (lambda (lista)
                                    (if (null? lista) zero
                                        (op (f (car lista)) (loop (cdr lista))))))))))
+|#
+
+
+
+; fact vs fact-tail vs fact-letrec
+(define (fact n)
+  (if (= n 0)
+      1
+      (* n (fact (- n 1)))))
+(fact 3)
+
+(define (fact-tail n acc)
+  (if (= n 0)
+      acc
+      (fact-tail (- n 1) (* n acc))))
+
+(fact-tail 3 1)
+
+(letrec ((fact (lambda (n acc)
+                 (if (= n 0)
+                     acc
+                     (fact (- n 1) (* n acc))))))
+        (fact 3 1))
+
+
+
 
 
 

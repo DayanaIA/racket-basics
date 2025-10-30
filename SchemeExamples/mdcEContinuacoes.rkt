@@ -78,38 +78,50 @@
 )))))
 
 
-  (define mdc*-efficient
-    (lambda (lista)
-      (letrec
-          ((mdc*-aux-eff
-            (lambda (lista continuacao)
-              (if (= 1 (car lista))
-                  1
-                  (if (null? (cdr lista))
-                      (continuacao (car lista))
-                      (mdc*-aux-eff (cdr lista)
-                                    (lambda (num)
-                                      (begin (display 'mdc)
-                                             (newline)
-                                             (continuacao (mdc (car lista)
-                                                                num))))))))))
-        (mdc*-aux-eff lista id))))
+(define mdc*-efficient
+  (lambda (lista)
+    (letrec
+        ((mdc*-aux-eff
+          (lambda (lista continuacao)
+            (if (= 1 (car lista))
+                1
+                (if (null? (cdr lista))
+                    (continuacao (car lista))
+                    (mdc*-aux-eff (cdr lista)
+                                  (lambda (num)
+                                    (continuacao (mdc (car lista)
+                                                             num)))))))))
+      (mdc*-aux-eff lista id))))
 
-  (define mdc*-super-efficient
-    (lambda (lista)
-      (letrec ((mdc-aux (lambda (lista continuacao)
-                        (if (= 1 (car lista))
-                            1
-                            (if (null? (cdr lista))
-                                (continuacao (car lista))
-                                (mdc-aux (cdr lista)
-                                         (lambda (num)
-                                           (if (= num 1) 1 ;se já achei 1 nao preciso do resto
-                                               (begin (display 'mdc)
-                                                      (newline)
-                                                      (continuacao (mdc (car lista)
+#| mdc-otimo* vs mdc*-efficient
+ | 
+ | mdc-otimo*:
+               no es tail recursion (cada llamada crea una continuación,
+               la llamada actual no se puede descartar porque la continuación necesita
+               acceder a resto-da-conta y a (car lista))
+               crea un nuevo frame por cada llamada
+ | mdc*-efficient:
+               es tail recursion ()
+               reutiliza el mismo frame
+ |#
+
+(define mdc*-super-efficient
+  (lambda (lista)
+    (letrec
+        ((mdc-aux
+          (lambda (lista continuacao)
+            (if (= 1 (car lista))
+                1
+                (if (null? (cdr lista))
+                    (continuacao (car lista))
+                    (mdc-aux (cdr lista)
+                             (lambda (num)
+                                   (if (= num 1) 1 ;se já achei 1 nao preciso do resto
+                                       (begin (display 'mdc)
+                                              (newline)
+                                              (continuacao (mdc (car lista)
                                                                 num)))))))))))
-                           (mdc-aux lista id))))
+      (mdc-aux lista id))))
 
 
 (define mdc-callcc* (lambda (lista)
@@ -131,6 +143,7 @@
 	      (mdc-s-inef (car s-expr))
 	      (mdc (mdc-s-inef (car s-expr))
                    (mdc-s-inef (cdr s-expr)))))))
+
 (define mdc-s (lambda (s-expr)
   (letrec
       ((mdc-s-aux (lambda (s-expr continuacao)
@@ -174,6 +187,8 @@
 ; Test
 
 (mdc*-inef '(20 48 32 1))
+
+(mdc-s-inef '(1 (2) (3 4)))
 
 
 
