@@ -23,9 +23,10 @@
   ; adding new "primitive" operations
   [beginC   (e1 : ExprC) (e2 : ExprC)]
   [let*C    (s1 : symbol) (e1 : ExprC) (s2 : symbol) (e2 : ExprC) (body : ExprC)]
-  [lambda2C (arg1 : symbol) (arg2 : symbol) (body : ExprC)]
+  [lam2C    (arg1 : symbol) (arg2 : symbol) (body : ExprC)]
   [app2C    (fun : ExprC) (arg1 : ExprC) (arg2 : ExprC)]
   [quoteC   (s : s-expression)]
+  [equalC   (l : ExprC) (r : ExprC)]
   )
 
 #| agora a linguagem aumentada pelo açúcar sintático
@@ -51,9 +52,10 @@
   [beginS   (e1 : ExprS) (e2 : ExprS)]
   [let*S    (s1 : symbol) (e1 : ExprS) (s2 : symbol) (e2 : ExprS) (body : ExprS)]
   [letrecS  (s : symbol) (e : ExprS) (body : ExprS)]
-  [lambda2S (arg1 : symbol) (arg2 : symbol) (body : ExprS)]
+  [lam2S    (arg1 : symbol) (arg2 : symbol) (body : ExprS)]
   [app2S    (fun : ExprS) (arg1 : ExprS) (arg2 : ExprS)]
   [quoteS   (s : s-expression)]
+  [equalS   (l : ExprS) (r : ExprS)]
   )
 
 
@@ -74,16 +76,17 @@
     [carS     (c)        (carC (desugar c))]
     [cdrS     (c)        (cdrC (desugar c))]
     ; adding new operations
-    [beginS   (e1 e2)            (beginC (desugar e1) (desugar e2))]
+    [beginS   (e1 e2)    (beginC (desugar e1) (desugar e2))]
     [let*S    (s1 e1 s2 e2 body) (let*C s1 (desugar e1) s2 (desugar e2) (desugar body))]
     [letrecS  (s e body) (                                       ; (letrec ( (f e) exp )) ~ 
                          letC s (numC 0)                        ; (let ( f '())
                                  (beginC                        ;        (begin
                                     (setC s (desugar e))        ;              (set! f e)
                                     (desugar body)))]           ;               exp )))
-    [lambda2S (a1 a2 b)        (lambda2C a1 a2 (desugar b))]
+    [lam2S    (a1 a2 b)        (lam2C a1 a2 (desugar b))]
     [app2S    (fun arg1 arg2)  (app2C (desugar fun) (desugar arg1) (desugar arg2))]
     [quoteS   (s)              (quoteC s)]
+    [equalS   (l r)            (equalC (desugar l) (desugar r))]
     ))
 
 ; We need a new value for the box
@@ -216,7 +219,7 @@
                                   (let ([v2 (interp e2 env1)]) ; 2. calcula e2 en env1, obtiene v2 y 
                                     (let ([env2 (extend-env (bind s2 (box v2)) env1)]) ;crea un ambiente env2 (extiene env1)
                                       (interp body env2)))))] ; 3. calcula body en env2
-    [lambda2C (a1 a2 b) (clos2V a1 a2 b env) ]
+    [lam2C (a1 a2 b) (clos2V a1 a2 b env) ]
     [app2C (f a1 a2)
           (let ((closure (interp f env))
                 (argvalue1 (interp a1 env))
@@ -228,9 +231,14 @@
               [else (error 'interp "operation app aplied to non-closure")]
               ))]
     [quoteC (s) (symV s)]
+    [equalC (l r)
+            (let ([lv (interp l env)]
+                  [rv (interp r env)])
+              (if (equal? lv rv)
+                  (numV 1)
+                  (numV 0)))]
 
     ))
-
 
 ; Parser with funny instructions for boxes
 (define (parse [s : s-expression]) : ExprS
@@ -240,32 +248,33 @@
     [(s-exp-list? s)
      (let ([sl (s-exp->list s)])
        (case (s-exp->symbol (first sl))
-         [(+) (plusS (parse (second sl)) (parse (third sl)))]
-         [(*) (multS (parse (second sl)) (parse (third sl)))]
-         [(-) (bminusS (parse (second sl)) (parse (third sl)))]
-         [(~) (uminusS (parse (second sl)))]
-         [(let) (letS (s-exp->symbol (second sl)) (parse (third sl)) (parse (fourth sl)))]
-         [(set!) (setS (s-exp->symbol (second sl)) (parse (third sl)))]
-         [(lambda) (lamS (s-exp->symbol (second sl)) (parse (third sl)))] ; definição
-         [(call) (appS (parse (second sl)) (parse (third sl)))]
-         [(if) (ifS (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
-         [(cons) (consS (parse (second sl)) (parse (third sl)))]
-         [(car) (carS (parse (second sl)))]
-         [(cdr) (cdrS (parse (second sl)))]
+         [(+)       (plusS (parse (second sl)) (parse (third sl)))]
+         [(*)       (multS (parse (second sl)) (parse (third sl)))]
+         [(-)       (bminusS (parse (second sl)) (parse (third sl)))]
+         [(~)       (uminusS (parse (second sl)))]
+         [(let)     (letS (s-exp->symbol (second sl)) (parse (third sl)) (parse (fourth sl)))]
+         [(set!)    (setS (s-exp->symbol (second sl)) (parse (third sl)))]
+         [(lambda)  (lamS (s-exp->symbol (second sl)) (parse (third sl)))] ; definição
+         [(call)    (appS (parse (second sl)) (parse (third sl)))]
+         [(if)      (ifS (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
+         [(cons)    (consS (parse (second sl)) (parse (third sl)))]
+         [(car)     (carS (parse (second sl)))]
+         [(cdr)     (cdrS (parse (second sl)))]
          ;adding new operations
-         [(begin) (beginS (parse (second sl)) (parse (third sl)))]
-         [(let*) (let*S (s-exp->symbol (list-ref sl 1))
+         [(begin)   (beginS (parse (second sl)) (parse (third sl)))]
+         [(let*)    (let*S (s-exp->symbol (list-ref sl 1))
                         (parse (list-ref sl 2))
                         (s-exp->symbol (list-ref sl 3))
                         (parse (list-ref sl 4))
                         (parse (list-ref sl 5)))]
-         [(letrec) (letrecS (s-exp->symbol (second sl)) 
+         [(letrec)  (letrecS (s-exp->symbol (second sl)) 
                         (parse (third sl))              
                         (parse (fourth sl)))]           
-         [(lambda2) (lambda2S (s-exp->symbol (second sl)) (s-exp->symbol (third sl)) (parse (fourth sl)))]
-         [(call2) (app2S (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
-         [(quote) (let ([quoted (second sl)]) (quoteS quoted))]
-         [else (error 'parse "invalid list input")]))]
+         [(lambda2) (lam2S (s-exp->symbol (second sl)) (s-exp->symbol (third sl)) (parse (fourth sl)))]
+         [(call2)   (app2S (parse (second sl)) (parse (third sl)) (parse (fourth sl)))]
+         [(quote)   (let ([quoted (second sl)]) (quoteS quoted))]
+         [(=)       (equalS  (parse (second sl)) (parse (third sl)))]
+         [else      (error 'parse "invalid list input")]))]
     [else (error 'parse "invalid input")]))
 
 
@@ -296,34 +305,4 @@
 
 (readloop)
 
-
-#| Examples
-(interpS '(+ 10 (* 2 3)))
-
-(interpS '(lambda x (car x)))
-(interpS '(lambda2 x y (+ (car x) y)))
-
-; parse s: [(lambda) (lamS (s-exp->symbol (second sl)) (parse (third sl)))]
-;                     (lamS (        'x              ) (parse (car x)))
-;                     (lamS (        'x              ) (carS (parse x)))
-;                     (lamS (        'x              ) (carS (idS x)))
-(parse '(lambda x (car x)))
-
-; desugar (parse s)
-; [lamS    (a b)      (lamC a (desugar b))]
-;                     (lamC 'x (desugar (carS (idS 'x))))
-;                     (lamC 'x (         carC (desugar (idS 'x))))
-;                     (lamC 'x (         carC (         idC 'x))))
-(desugar (lamS 'x (carS (idS 'x))))
-
-; interp (desugar (parse s))
-; [lamC (a b) (closV a b env) ]
-;             (closV 'x (carC (idC 'x)) '())
-(interp (lamC 'x (carC (idC 'x))) mt-env)
-
-(interpS '(let x 5 (begin (set! x 10) (+ x 5))))
-
-(interpS '(let* x 2 y (+ x 3) (* x y)))
-
-|#
 
